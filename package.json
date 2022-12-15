@@ -1,0 +1,22 @@
+{
+  "name": "torrent-client",
+  "version": "1.0.0",
+  "description": "For education purposes",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Douglch/torrent-client.git"
+  },
+  "author": "Douglch",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Douglch/torrent-client/issues"
+  },
+  "homepage": "https://github.com/Douglch/torrent-client#readme",
+  "dependencies": {
+    "bencode": "^3.0.0"
+  }
+}
