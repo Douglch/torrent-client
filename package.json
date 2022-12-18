@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/Douglch/torrent-client#readme",
   "dependencies": {
-    "bencode": "^3.0.0"
+    "bencode": "^0.9.0"
   }
 }
