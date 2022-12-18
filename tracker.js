@@ -3,6 +3,7 @@
 const dgram = require('dgram');
 const Buffer = require('buffer').Buffer;
 const urlParse = require('url').parse;
+const crypto = require('crypto'); // For creating a random number for the buffer
 
 module.exports.getPeers = (torrent, callback) => {
     /* dgram.createSocket
@@ -52,11 +53,29 @@ function respType(resp) {
   }
   
   function buildConnReq() {
-    // ...
+    const buf = Buffer.alloc(16);
+    /* connection id
+    The reason we have to write in 4 byte chunks, is that there is no method to write a 64 bit integer.
+    Actually node.js doesn’t support precise 64-bit integers
+    */
+    buf.writeUInt32BE(0x417, 0); 
+    buf.writeUInt32BE(0x27101980, 4);
+    /* action
+    This value should always be 0 for the connection request.
+    */
+    buf.writeUInt32BE(0, 8); 
+    /* transaction id
+    Generate a random 4-byte buffer
+    */
+    crypto.randomBytes(4).copy(buf, 12);   
   }
   
   function parseConnResp(resp) {
-    // ...
+    return {
+      action: resp.readUInt32BE(0),
+      transactionId: resp.readUInt32BE(4),
+      connectionId: resp.slice(8)
+    }
   }
   
   function buildAnnounceReq(connId) {
