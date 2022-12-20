@@ -1,10 +1,8 @@
 // run node index.js
 'use strict';
-const tracker = require('./tracker');
-const torrentParser = require('./torrent-parser');
+const download = require('./src/download');
+const torrentParser = require('./src/torrent-parser');
 
-const torrent = torrentParser.open('puppy.torrent'); // returns a buffer, not a string
+const torrent = torrentParser.open(process.argv[2]); // returns a buffer, not a string
 
-tracker.getPeers(torrent, peers => {
-  console.log('list of peers: ', peers);
-});
+download(torrent);
