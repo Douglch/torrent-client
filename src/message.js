@@ -134,3 +134,27 @@ module.exports.buildHandshake = torrent => {
     buf.writeUInt16BE(payload, 5);
     return buf;
   };
+
+  /*
+  If the message length isn’t greater than 4, then we know it is the keep-ahead message which has no id. 
+  If the length isn’t greater than 5 we know that it has no payload. 
+  If the id is 6, 7, 8, those messages split the pay load into index, begin, and block/length.
+  */
+  module.exports.parse = msg => {
+    const id = msg.length > 4 ? msg.readInt8(4) : null;
+    let payload = msg.length > 5 ? msg.slice(5) : null;
+    if (id === 6 || id === 7 || id === 8) {
+      const rest = payload.slice(8);
+      payload = {
+        index: payload.readInt32BE(0),
+        begin: payload.readInt32BE(4)
+      };
+      payload[id === 7 ? 'block' : 'length'] = rest;
+    }
+  
+    return {
+      size : msg.readInt32BE(0),
+      id : id,
+      payload : payload
+    }
+  };
