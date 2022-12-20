@@ -2,17 +2,30 @@
 const net = require('net'); // For TCP, we use the “net” module instead of the “dgram” module.
 const Buffer = require('buffer').Buffer;
 const tracker = require('./tracker');
+const message = require('./message');
 
-function download(peer) {
+function download(peer, torrent) {
     const socket = net.Socket();
     socket.on('error', console.log);
     socket.connect(peer.port, peer.ip, () => {
       // socket.write(...) write a message here
+      socket.write(message.buildHandshake(torrent));
     });
-    onWholeMsg(socket, data => {
+    onWholeMsg(socket, msg => 
       // handle response here
-    });
+      msgHandler(msg, socket)
+    );
 }
+
+function msgHandler(msg, socket) {
+    if (isHandshake(msg)) socket.write(message.buildInterested());
+}
+
+function isHandshake(msg) {
+    return msg.length === msg.readUInt8(0) + 49 &&
+           msg.toString('utf8', 1) === 'BitTorrent protocol';
+}
+  
 
 function onWholeMsg(socket, callback) {
     let savedBuf = Buffer.alloc(0);
@@ -36,6 +49,6 @@ function onWholeMsg(socket, callback) {
 
   module.exports = torrent => {
     tracker.getPeers(torrent, peers => {
-        peers.forEach(download);
+        peers.forEach(peer => download(peer, torrent));
     });
 };
