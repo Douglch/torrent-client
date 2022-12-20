@@ -4,6 +4,7 @@ const Buffer = require('buffer').Buffer;
 const tracker = require('./tracker');
 const message = require('./message');
 const Pieces = require("./Pieces");
+const Queue = require('./Queue');
 
 function download(peer, torrent, pieces) {
     const socket = net.Socket();
@@ -13,11 +14,11 @@ function download(peer, torrent, pieces) {
       socket.write(message.buildHandshake(torrent));
     });
 
-    const queue = {choked: true, queue: []};
+    const queue = new Queue(torrent);
 
     onWholeMsg(socket, msg => 
       // handle response here
-      msgHandler(msg, socket, requested, queue);
+      msgHandler(msg, socket, pieces, queue);
     );
 }
 
@@ -60,22 +61,21 @@ function onWholeMsg(socket, callback) {
       }
     });
   }
-function chokeHandler() { ... }
+function chokeHandler() {
+  socket.end();
+}
 
 function unchokeHandler(socket, pieces, queue) {
     queue.choked = false;
     requestPiece(socket, pieces, queue);
 }
 
-function haveHandler(payload, socket, requested) {
-
-
-    // requested list will get passed through and how it will be used to determine whether or not a piece should be requested.
-    const pieceIndex = payload.readInt32BE(0);
-    queue.push(pieceIndex);
-    if (queue.length === 1) {
-        requestPiece(socket, requested, queue);
-    }
+function haveHandler(socket, pieces, queue, payload) {
+    // wait for the piece response to come back before requesting the next piece.
+    const pieceIndex = payload.readUInt32BE(0);
+    const queueEmpty = queue.length === 0;
+    queue.queue(pieceIndex);
+    if (queueEmpty) requestPiece(socket, pieces, queue);
 }
 
 function bitfieldHandler(payload) { ... }
@@ -85,26 +85,33 @@ function pieceHandler(payload) {
   requestPiece(socket, requested, queue);
 }
 
-function requestPiece(socket, requested, queue) {
+function requestPiece(socket, pieces, queue) {
     if (queue.choked) return null;
 
-    while (queue.queue.length) {    
+    while (queue.length()) {
       // If already requested, shift out of the queue (Avoids duplicate requests)
-      const pieceIndex = queue.shift();
-      if (pieces.needed(pieceIndex)) {
-        // need to fix this
-        socket.write(message.buildRequest(pieceIndex));
-        pieces.addRequested(pieceIndex);
+      const pieceBlock = queue.deque();
+      if (pieces.needed(pieceBlock)) {
+        socket.write(message.buildRequest(pieceBlock));
+        pieces.addRequested(pieceBlock);
         break;
       }
     }
 }
 
+// module.exports = torrent => {
+//     const requested = [];
+//     tracker.getPeers(torrent, peers => {
+//         // Total number of pieces = buffer length / 20-byte SHA-1 hash
+//         const Pieces = new Pieces(torrent.info.length / 20);
+//         peers.forEach(peer => download(peer, torrent, pieces));
+//     });
+// };
+
 module.exports = torrent => {
-    const requested = [];
-    tracker.getPeers(torrent, peers => {
-        // Total number of pieces = buffer length / 20-byte SHA-1 hash
-        const Pieces = new Pieces(torrent.info.length / 20);
-        peers.forEach(peer => download(peer, torrent, pieces));
-    });
+  tracker.getPeers(torrent, peers => {
+    // need to pass torrent now
+    const pieces = new Pieces(torrent);
+    peers.forEach(peer => download(peer, torrent, pieces));
+  });
 };
