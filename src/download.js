@@ -11,9 +11,12 @@ function download(peer, torrent) {
       // socket.write(...) write a message here
       socket.write(message.buildHandshake(torrent));
     });
+
+    const queue = [];
+
     onWholeMsg(socket, msg => 
       // handle response here
-      msgHandler(msg, socket)
+      msgHandler(msg, socket, requested, queue);
     );
 }
 
@@ -25,9 +28,9 @@ function msgHandler(msg, socket) {
     
         if (m.id === 0) chokeHandler();
         if (m.id === 1) unchokeHandler();
-        if (m.id === 4) haveHandler(m.payload);
+        if (m.id === 4) haveHandler(m.payload, socket, requested, queue);
         if (m.id === 5) bitfieldHandler(m.payload);
-        if (m.id === 7) pieceHandler(m.payload);
+        if (m.id === 7) pieceHandler(m.payload, socket, request, queue);
     }
 } 
 
@@ -56,9 +59,40 @@ function onWholeMsg(socket, callback) {
       }
     });
   }
+function chokeHandler() { ... }
 
-  module.exports = torrent => {
+function unchokeHandler() { ... }
+
+function haveHandler(payload, socket, requested) {
+
+
+    // requested list will get passed through and how it will be used to determine whether or not a piece should be requested.
+    const pieceIndex = payload.readInt32BE(0);
+    queue.push(pieceIndex);
+    if (queue.length === 1) {
+        requestPiece(socket, requested, queue);
+    }
+}
+
+function bitfieldHandler(payload) { ... }
+
+function pieceHandler(payload) {
+  queue.shift();
+  requestPiece(socket, requested, queue);
+}
+
+function requestPiece(socket, requested, queue) {
+    // If already requested, shfit out of the queue (Avoids duplicate requests)
+    if (requested[queue[0]]) {
+        queue.shift();
+    } else {
+        // socket.write(message.buildRequest(pieceIndex));
+    }
+}
+
+module.exports = torrent => {
+    const requested = [];
     tracker.getPeers(torrent, peers => {
-        peers.forEach(peer => download(peer, torrent));
+        peers.forEach(peer => download(peer, torrent, requested));
     });
 };
