@@ -18,7 +18,7 @@ function download(peer, torrent, pieces) {
 
     onWholeMsg(socket, msg => 
       // handle response here
-      msgHandler(msg, socket, pieces, queue);
+      msgHandler(msg, socket, pieces, queue, torrent, file)
     );
 }
 
@@ -78,11 +78,36 @@ function haveHandler(socket, pieces, queue, payload) {
     if (queueEmpty) requestPiece(socket, pieces, queue);
 }
 
-function bitfieldHandler(payload) { ... }
+function bitfieldHandler(payload) {
+  // If the peer has the index-0 piece, then the first bit will be a 1. If not it will be 0
+  const queueEmpty = queue.length === 0;
+  payload.forEach((byte, i) => {
+    for (let j = 0; j < 8; j++) {
+      /*
+      repeatedly dividing by 2 and taking the remainder will convert a base-10 number to a binary number, 
+      giving you the digits of the binary number from least to most signifiant bit (right to left).
+      */
+      if (byte % 2) queue.queue(i * 8 + 7 - j);
+      byte = Math.floor(byte / 2);
+    }
+  });
+  if (queueEmpty) requestPiece(socket, pieces, queue);
+}
 
-function pieceHandler(payload) {
-  queue.shift();
-  requestPiece(socket, requested, queue);
+function pieceHandler(socket, pieces, queue, torrent, file, pieceResp) {
+  console.log(pieceResp);
+  pieces.addReceived(pieceResp);
+
+  const offset = pieceResp.index * torrent.info['piece length'] + pieceResp.begin;
+  fs.write(file, pieceResp.block, 0, pieceResp.block.length, offset, () => {});
+
+  if (pieces.isDone()) {
+    console.log('DONE!');
+    socket.end();
+    try { fs.closeSync(file); } catch(e) {}
+  } else {
+    requestPiece(socket,pieces, queue);
+  }
 }
 
 function requestPiece(socket, pieces, queue) {
@@ -108,10 +133,12 @@ function requestPiece(socket, pieces, queue) {
 //     });
 // };
 
-module.exports = torrent => {
+module.exports = (torrent, peers) => {
+  // write the bytes to file
   tracker.getPeers(torrent, peers => {
     // need to pass torrent now
     const pieces = new Pieces(torrent);
-    peers.forEach(peer => download(peer, torrent, pieces));
+    const file = fs.openSync(path, 'w'); // w for writing to a file
+    peers.forEach(peer => download(peer, torrent, pieces, file));
   });
 };
