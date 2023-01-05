@@ -5,4 +5,4 @@ const torrentParser = require('./src/torrent-parser');
 
 const torrent = torrentParser.open(process.argv[2]); // returns a buffer, not a string
 
-download(torrent);
+download(torrent, torrent.info.name);
